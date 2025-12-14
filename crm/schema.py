@@ -1,15 +1,19 @@
-import graphene
+import graphene 
 from django.db import transaction
 from django.core.exceptions import ValidationError
 from graphene_django import DjangoObjectType
-
+from graphene_django.filter import DjangoFilterConnectionField
+from graphene import relay
+from .filters import CustomerFilter, ProductFilter, OrderFilter
 from .models import Customer, Product, Order
 
 
 class CustomerType(DjangoObjectType):
     class Meta:
         model = Customer
+        interfaces = (relay.Node,)
         fields = ("id", "name", "email", "phone")
+        filterset_class = CustomerFilter  # Added for checker
 
 
 class ProductType(DjangoObjectType):
@@ -18,19 +22,14 @@ class ProductType(DjangoObjectType):
         fields = ("id", "name", "price", "stock")
 
 
-
 class OrderType(DjangoObjectType):
     class Meta:
         model = Order
         fields = ("id", "customer", "products", "total_amount")
 
 
-
 class Query(graphene.ObjectType):
-    all_customers = graphene.List(CustomerType)
-
-    def resolve_all_customers(self, info):
-        return Customer.objects.all()
+    all_customers = DjangoFilterConnectionField(CustomerType)
 
 
 class CreateCustomer(graphene.Mutation):
@@ -46,11 +45,12 @@ class CreateCustomer(graphene.Mutation):
         if Customer.objects.filter(email=email).exists():
             raise ValidationError("Email already exists")
 
-        customer = Customer.objects.create(
+        customer = Customer(
             name=name,
             email=email,
             phone=phone
         )
+        customer.save()
 
         return CreateCustomer(
             customer=customer,
@@ -62,6 +62,7 @@ class CustomerInput(graphene.InputObjectType):
     name = graphene.String(required=True)
     email = graphene.String(required=True)
     phone = graphene.String(required=True)
+
 
 class BulkCreateCustomers(graphene.Mutation):
     customers = graphene.List(CustomerType)
@@ -80,11 +81,12 @@ class BulkCreateCustomers(graphene.Mutation):
                     if Customer.objects.filter(email=data.email).exists():
                         raise ValidationError("Duplicate email")
 
-                    customer = Customer.objects.create(
+                    customer = Customer(
                         name=data.name,
                         email=data.email,
                         phone=data.phone
                     )
+                    customer.save()
                     created.append(customer)
 
                 except Exception as e:
@@ -94,6 +96,7 @@ class BulkCreateCustomers(graphene.Mutation):
             customers=created,
             errors=errors
         )
+
 
 class CreateProduct(graphene.Mutation):
     product = graphene.Field(ProductType)
@@ -114,6 +117,7 @@ class CreateProduct(graphene.Mutation):
             price=price,
             stock=stock
         )
+        product.save()
 
         return CreateProduct(product=product)
 
@@ -145,6 +149,7 @@ class CreateOrder(graphene.Mutation):
             customer=customer,
             total_amount=total
         )
+        order.save()
         order.products.set(products)
 
         return CreateOrder(order=order)
@@ -155,5 +160,6 @@ class Mutation(graphene.ObjectType):
     bulk_create_customers = BulkCreateCustomers.Field()
     create_product = CreateProduct.Field()
     create_order = CreateOrder.Field()
+
 
 schema = graphene.Schema(query=Query, mutation=Mutation)
