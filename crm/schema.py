@@ -6,6 +6,8 @@ from graphene_django.filter import DjangoFilterConnectionField
 from graphene import relay
 from .filters import CustomerFilter, ProductFilter, OrderFilter
 from crm.models import Customer, Product, Order
+from crm.models import Product
+
 
 
 class CustomerType(DjangoObjectType):
