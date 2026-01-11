@@ -30,7 +30,7 @@ result = client.execute(query, variable_values={"since": since_date})
 
 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-with open("/tmp/orderreminderslog.txt", "a") as log:
+with open("/tmp/order_reminders_log.txt", "a") as log:
     for order in result.get("orders", []):
         log.write(
             f"{timestamp} - Order ID: {order['id']}, "

@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'graphene_django',
     'crm',
     'django_filters',
+    'django_crontab',
 ]
 
 MIDDLEWARE = [
@@ -126,6 +127,12 @@ STATIC_URL = 'static/'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
+
+
+CRONJOBS = [
+    ('*/5 * * * *', 'crm.cron.logcrmheartbeat'),
+]
+
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
