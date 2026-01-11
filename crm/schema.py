@@ -1,11 +1,11 @@
-import graphene 
+import graphene
 from django.db import transaction
 from django.core.exceptions import ValidationError
 from graphene_django import DjangoObjectType
 from graphene_django.filter import DjangoFilterConnectionField
 from graphene import relay
 from .filters import CustomerFilter, ProductFilter, OrderFilter
-from .models import Customer, Product, Order
+from crm.models import Customer, Product, Order
 
 
 class CustomerType(DjangoObjectType):
@@ -13,7 +13,7 @@ class CustomerType(DjangoObjectType):
         model = Customer
         interfaces = (relay.Node,)
         fields = ("id", "name", "email", "phone")
-        filterset_class = CustomerFilter  # Added for checker
+        filterset_class = CustomerFilter
 
 
 class ProductType(DjangoObjectType):
@@ -45,11 +45,7 @@ class CreateCustomer(graphene.Mutation):
         if Customer.objects.filter(email=email).exists():
             raise ValidationError("Email already exists")
 
-        customer = Customer(
-            name=name,
-            email=email,
-            phone=phone
-        )
+        customer = Customer(name=name, email=email, phone=phone)
         customer.save()
 
         return CreateCustomer(
@@ -117,7 +113,6 @@ class CreateProduct(graphene.Mutation):
             price=price,
             stock=stock
         )
-        product.save()
 
         return CreateProduct(product=product)
 
@@ -149,10 +144,32 @@ class CreateOrder(graphene.Mutation):
             customer=customer,
             total_amount=total
         )
-        order.save()
         order.products.set(products)
 
         return CreateOrder(order=order)
+
+
+# =========================
+# LOW STOCK UPDATE MUTATION
+# =========================
+
+class UpdateLowStockProducts(graphene.Mutation):
+    success = graphene.String()
+    products = graphene.List(ProductType)
+
+    def mutate(self, info):
+        updated_products = []
+        low_stock_products = Product.objects.filter(stock__lt=10)
+
+        for product in low_stock_products:
+            product.stock += 10
+            product.save()
+            updated_products.append(product)
+
+        return UpdateLowStockProducts(
+            success="Low stock products updated",
+            products=updated_products
+        )
 
 
 class Mutation(graphene.ObjectType):
@@ -160,6 +177,7 @@ class Mutation(graphene.ObjectType):
     bulk_create_customers = BulkCreateCustomers.Field()
     create_product = CreateProduct.Field()
     create_order = CreateOrder.Field()
+    updateLowStockProducts = UpdateLowStockProducts.Field()
 
 
 schema = graphene.Schema(query=Query, mutation=Mutation)
